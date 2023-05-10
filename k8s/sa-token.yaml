@@ -1,0 +1,18 @@
+# needed for kubernetes 1.24 onwards, token is not created automatically
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: spark-operator-token
+  namespace: spark-operator
+  annotations:
+    kubernetes.io/service-account.name: "spark-operator"
+---
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: spark-operator-spark-token
+  namespace: spark-operator
+  annotations:
+    kubernetes.io/service-account.name: "spark-operator-spark"

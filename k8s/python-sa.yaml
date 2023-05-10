@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: python-client-sa
+  namespace: spark-operator
+---
+# needed for kubernetes 1.24 onwards, token is not created automatically
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: python-client-sa-token
+  namespace: spark-operator
+  annotations:
+    kubernetes.io/service-account.name: "python-client-sa"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: python-client-sa-runner-1
+  namespace: spark-runner-1
+---
+# needed for kubernetes 1.24 onwards, token is not created automatically
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: python-client-sa-1-token
+  namespace: spark-runner-1
+  annotations:
+    kubernetes.io/service-account.name: "python-client-sa-runner-1"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: python-client-sa-runner-2
+  namespace: spark-runner-2
+---
+# needed for kubernetes 1.24 onwards, token is not created automatically
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: python-client-sa-2-token
+  namespace: spark-runner-2
+  annotations:
+    kubernetes.io/service-account.name: "python-client-sa-runner-2"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: spark-operator
+  name: python-client-role
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "pods", "pods/log", "pods/status", "services", "persistentvolumeclaims"]
+  verbs: ["*"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: ["sparkoperator.k8s.io"]
+  resources: [sparkapplications]
+  verbs: ["*"]
+---  
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: python-client-role-binding
+  namespace: spark-operator
+subjects:
+- kind: ServiceAccount
+  name: python-client-sa
+  namespace: spark-operator
+roleRef:
+  kind: Role
+  name: python-client-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-reader
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: python-client-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: python-client-sa
+  namespace: spark-operator
+roleRef:
+  kind: ClusterRole
+  name: node-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: python-client-clusterrole
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "pods", "pods/log", "pods/status", "services", "persistentvolumeclaims"]
+  verbs: ["*"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: ["sparkoperator.k8s.io"]
+  resources: [sparkapplications]
+  verbs: ["*"]
+
+# create role bindings for each namespace
+# 1 sa per namespace
+# Pandan
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: python-client-role-binding-runner-1
+  namespace: spark-runner-1
+roleRef:
+  kind: ClusterRole
+  name: python-client-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: python-client-sa-runner-1
+  namespace: spark-runner-1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: python-client-role-binding-runner-2
+  namespace: spark-runner-2
+roleRef:
+  kind: ClusterRole
+  name: python-client-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: python-client-sa-runner-2
+  namespace: spark-runner-2
+
+
+# usage of single SA that links to multi namespaces
+# not supported in current pyspark-yaml
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: RoleBinding
+# metadata:
+#   name: python-client-role-binding-1
+#   namespace: spark-runner-1
+# roleRef:
+#   kind: ClusterRole
+#   name: python-client-clusterrole
+#   apiGroup: rbac.authorization.k8s.io
+# subjects:
+# - kind: ServiceAccount
+#   name: python-client-sa
+#   namespace: spark-operator
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: RoleBinding
+# metadata:
+#   name: python-client-role-binding-2
+#   namespace: spark-runner-2
+# roleRef:
+#   kind: ClusterRole
+#   name: python-client-clusterrole
+#   apiGroup: rbac.authorization.k8s.io
+# subjects:
+# - kind: ServiceAccount
+#   name: python-client-sa
+#   namespace: spark-operator

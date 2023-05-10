@@ -1,0 +1,97 @@
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: ${APP_NAME}-${NAME_SUFFIX}
+  namespace: ${NAMESPACE}
+spec:
+  priorityClassName: ${PRIORITY_CLASS_NAME}
+  driver:
+    annotations:
+      "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+    # affinity:
+    # comment out  when spark-operator webhook is installed 
+    #   nodeAffinity:
+    #     requiredDuringSchedulingIgnoredDuringExecution:
+    #       nodeSelectorTerms:
+    #       - matchExpressions:
+    #         - key: type
+    #           operator: In
+    #           values: [${DRIVER_NODE_AFFINITIES}]
+    coreLimit: 1200m
+    coreRequest: 100m
+    cores: 1
+    labels:
+      # Redundant with sparkoperator.k8s.io/app-name, but allow
+      # to use the same label selectors across Spark applications
+      # launched by Spark Operator or by spark-submit
+      app-name: ${APP_NAME}-${NAME_SUFFIX}
+      version: 3.3.1
+    memory: 512m
+    serviceAccount: ${SERVICE_ACCOUNT_NAME}
+    # secrets:
+    # - name: "gcp-sa-credentials"
+    #   path: "/mnt/gcp-secrets"
+    #   secretType: GCPServiceAccount
+    # envVars:
+    #   GCS_PROJECT_ID: ${GCP_PROJECT_ID}
+    # envSecretKeyRefs:
+    #   AWS_ACCESS_KEY_ID:
+    #     name: aws-access-secret
+    #     key: s3_access_key_id
+    #   AWS_SECRET_ACCESS_KEY:
+    #     name: aws-access-secret 
+    #     key: s3_secret_access_key
+  executor:
+    # affinity:
+    # comment out  when spark-operator webhook is installed 
+    #   nodeAffinity:
+    #     requiredDuringSchedulingIgnoredDuringExecution:
+    #       nodeSelectorTerms:
+    #       - matchExpressions:
+    #         - key: type
+    #           operator: In
+    #           values: [${EXECUTOR_NODE_AFFINITIES}]
+    cores: 2
+    instances: 2
+    labels:
+      version: 3.3.1
+    memory: 1024m
+    # secrets:
+    # - name: "gcp-sa-credentials"
+    #   path: "/mnt/gcp-secrets"
+    #   secretType: GCPServiceAccount
+    # envVars:
+    #   GCS_PROJECT_ID: ${GCP_PROJECT_ID} 
+  image: ${WORKER_IMAGE}
+  # imagePullSecrets:
+  #   - "gcp-imagepullsecrets"
+  imagePullPolicy: Always
+  mainApplicationFile: ${PYTHON_APP_PATH}
+  # hadoopConf:
+  #   "google.cloud.auth.service.account.enable": "true"
+  #   "google.cloud.auth.service.account.json.keyfile": "/mnt/gcp-secrets/gcs-secret.json"
+  mode: cluster
+  pythonVersion: "3"
+  restartPolicy:
+    onFailureRetries: 3
+    onFailureRetryInterval: 10
+    onSubmissionFailureRetries: 5
+    onSubmissionFailureRetryInterval: 20
+    type: OnFailure
+  sparkConf:
+    # spark.kubernetes.memoryOverheadFactor: "0.2"
+    spark.ui.proxyBase: /${APP_NAME}-${PRIORITY_CLASS_NAME}${NAME_SUFFIX}
+    spark.sql.extensions: io.delta.sql.DeltaSparkSessionExtension
+    spark.sql.catalog.spark_catalog: org.apache.spark.sql.delta.catalog.DeltaCatalog
+    spark.delta.logStore.gs.impl: io.delta.storage.GCSLogStore
+    spark.hadoop.fs.s3a.impl: "org.apache.hadoop.fs.s3a.S3AFileSystem"
+    spark.hadoop.fs.s3a.aws.credentials.provider: "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    spark.hadoop.fs.s3a.path.style.access: "true"
+  sparkVersion: 3.3.1
+  timeToLiveSeconds: 172800
+  type: "Python"
+  dynamicAllocation:
+    enabled: true
+    initialExecutors: 2
+    minExecutors: 2
+    maxExecutors: 4
