@@ -1,20 +1,22 @@
 # spark-on-k8s
 
-Pre-requisites
+Note: 
+As of 31 May 2023, this does not work with Rancher Desktop/kind/colima, as there are some issues with `tini` and `qemu`. Will re-test at a later stage.
+I have only tested with Docker Desktop (for mac).
 
+
+Pre-requisites
+1. Docker Engine (Docker Desktop)
 1. Local K8s cluster (minikube or kind)
 2. Helm 
 3. Python Environment/Poetry (only if you want to use python to trigger spark jobs via the API)
 
 
-
-
-
-
-
 Deployment Steps
 
-1. Create a local cluster with ingress
+1. We are using `kind` to create our local k8s cluster.
+
+a. Create a local cluster with ingress
 
 ```bash
 cat <<EOF | kind create cluster --config=-
@@ -36,7 +38,6 @@ nodes:
     hostPort: 443
     protocol: TCP
 EOF
-
 ```
 
 You should see this 
@@ -56,7 +57,7 @@ kubectl cluster-info --context kind-kind
 ```
 
 
-Add Ingress nginx - https://kind.sigs.k8s.io/docs/user/ingress/
+b. Add Ingress nginx - https://kind.sigs.k8s.io/docs/user/ingress/
 ```
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
 ```
@@ -83,21 +84,38 @@ ingressclass.networking.k8s.io/nginx created
 validatingwebhookconfiguration.admissionregistration.k8s.io/ingress-nginx-admission created
 ```
 
-kubectl wait --namespace ingress-nginx \                                                      
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=90s
+c. Check for pod readiness
+```
+kubectl wait --namespace ingress-nginx \
+--for=condition=ready pod \
+--selector=app.kubernetes.io/component=controller \
+--timeout=120s
+```
+
+Successful Output:
+```
 pod/ingress-nginx-controller-69dfcc796b-xd26b condition met
+```
 
-
-Create namespace for `spark-operator`
+d. Create namespace for `spark-operator`
 ```
 kubectl create namespace spark-operator
 ```
 
 Create 2 more namespaces for running jobs
-k create namespace spark-runner-1                                                            
-k create namespace spark-runner-2
+```
+kubectl create namespace spark-runner-1                                                            
+kubectl create namespace spark-runner-2
+```
+
+e. Set your kubecontext to `spark-operator` namespace
+
+```
+kubectl config set-context --current --namespace=spark-operator
+```
+
+You can run all the commands via this script: [create_k8s_cluster.sh](create_k8s_cluster.sh)
+
 
 2. Add Helm repo
 ```
@@ -123,19 +141,45 @@ TEST SUITE: None
 
 
 4. Apply the following manifests
-a. priorities.yaml
-b. spark-application-rbac.yaml
-c. python-sa.yaml
+  
+    - priorities.yaml
+    - spark-application-rbac.yaml
+    - python-sa.yaml
 
 
-Create the secret for the service accounts manually, as kubernetes 1.24 sets this process as manual
 ```
-kubectl create token python client-sa
+kubectl apply -f k8s/priorities.yaml     
+kubectl apply -f k8s/spark-application-rbac.yaml 
+```
+
+Output:
+```
+priorityclass.scheduling.k8s.io/routine created
+priorityclass.scheduling.k8s.io/urgent created
+priorityclass.scheduling.k8s.io/exceptional created
+priorityclass.scheduling.k8s.io/rush created
+
+Warning: resource namespaces/spark-runner-1 is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
+namespace/spark-runner-1 configured
+Warning: resource namespaces/spark-runner-2 is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
+namespace/spark-runner-2 configured
+serviceaccount/spark-sa-1 created
+serviceaccount/spark-sa-2 created
+clusterrole.rbac.authorization.k8s.io/sparkoperator-clusterrole created
+rolebinding.rbac.authorization.k8s.io/spark-sa-rolebinding-1 created
+rolebinding.rbac.authorization.k8s.io/spark-sa-rolebinding-2 created
 ```
 
 
-Multi-Namespaces:
+
+
+5a. Multi-Namespaces:
 - k8s/python-sa.yaml has been updated to create multiple service accounts for the new namespaces.
+- We also create service account tokens manually, as in kubernetes version 1.24 onwards, its not created automatically.
+
+- For multi-namespace, you would need a separate kubeconfig per namespace as they use different service accounts.
+- use the script: generate_kubeconfig_input.sh and enter the namespace and service account name, service account token secret name.
+- update the trigger-spark-operator.py with the kubeconfig file name and namespaces accordingly.
 
 ```
 kubectl apply -f k8s/python-sa.yaml
@@ -143,8 +187,11 @@ kubectl apply -f k8s/python-sa.yaml
 
 ```
 serviceaccount/python-client-sa created
+secret/python-client-sa-token created
 serviceaccount/python-client-sa-runner-1 created
+secret/python-client-sa-1-token created
 serviceaccount/python-client-sa-runner-2 created
+secret/python-client-sa-2-token created
 role.rbac.authorization.k8s.io/python-client-role created
 rolebinding.rbac.authorization.k8s.io/python-client-role-binding created
 clusterrole.rbac.authorization.k8s.io/node-reader created
@@ -154,10 +201,10 @@ rolebinding.rbac.authorization.k8s.io/python-client-role-binding-runner-1 create
 rolebinding.rbac.authorization.k8s.io/python-client-role-binding-runner-2 created
 ```
 
-- For multi-namespace, you would need a separate kubeconfig per namespace as they use different service accounts.
-- use the script: generate_kubeconfig_input.sh and enter the namespace and service account name, service account token secret name.
-- update the trigger-spark-operator.py with the kubeconfig file name and namespaces accordingly.
 
+
+
+6. Generate a custom kubeconfig only to be used by this service account in a python script
 
 ```
 sh generate_kubeconfig_input.sh python-client-sa python-client-sa-token spark-operator                            
@@ -182,8 +229,8 @@ kubectl apply -f examples/spark-pi.yaml
 
 
 
-
-Create your python environment
+### Try to create a sparkapplication using python k8s api
+1. Create your python environment
 
 ```
 conda env create -f spark.yml   
@@ -192,15 +239,7 @@ poetry install
 ```
 
 
-
-
-
-
-
-
-
-
-### python file
+2. run python file
 ```
 python trigger-spark-operator.py
 ```

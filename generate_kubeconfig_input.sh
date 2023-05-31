@@ -53,4 +53,5 @@ users:
   name: ${SERVICE_ACCOUNT_NAME}
 EOF
 
-echo "$FILE_OUT generated"
+echo "`pwd`/$FILE_OUT generated"
+echo "Test this command by running \`KUBECONFIG=`pwd`/$FILE_OUT kubectl get po\`"
