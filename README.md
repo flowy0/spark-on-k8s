@@ -1,5 +1,9 @@
 # spark-on-k8s
 
+This repo shows how to deploy Spark operator on Kubernetes, with role based access for multiple namespaces. 
+Spark Jobs can be created in multiple namespaces via the Kubernetes Python API and their inputs are configurable via a python script.
+
+
 Note: 
 As of 31 May 2023, this does not work with Rancher Desktop/kind/colima, as there are some issues with `tini` and `qemu`. Will re-test at a later stage.
 I have only tested with Docker Desktop (for mac).
