@@ -3,6 +3,15 @@
 This repo shows how to deploy Spark operator on Kubernetes, with role based access for multiple namespaces. 
 Spark Jobs can be created in multiple namespaces via the Kubernetes Python API and their inputs are configurable via a python script.
 
+Update:
+As of Mar 2024, When running on a M1/Apple Silicon Machine, If you use Colima as a Docker Engine run with specific settings. It should work, see sample below
+```bash
+#AMD profile
+colima start --profile amd --arch amd --cpu 4 --memory 8 --disk 80
+
+# or rosetta emulation
+colima start --arch aarch64 --vm-type=vz --vz-rosetta --cpu 4 --memory 8 --disk 80
+```
 
 Note: 
 As of 31 May 2023, this does not work with Rancher Desktop/kind/colima, as there are some issues with `tini` and `qemu`. Will re-test at a later stage.
@@ -19,6 +28,7 @@ Pre-requisites
 Deployment Steps
 
 1. We are using `kind` to create our local k8s cluster.
+- Kind uses docker containers to run our K8s cluster 
 
 a. Create a local cluster with ingress
 
