@@ -25,7 +25,7 @@ spec:
       # to use the same label selectors across Spark applications
       # launched by Spark Operator or by spark-submit
       app-name: ${APP_NAME}-${NAME_SUFFIX}
-      version: 3.3.1
+      version: 3.5.0
     memory: 512m
     serviceAccount: ${SERVICE_ACCOUNT_NAME}
     # secrets:
@@ -54,7 +54,7 @@ spec:
     cores: 2
     instances: 2
     labels:
-      version: 3.3.1
+      version: 3.5.0
     memory: 1024m
     # secrets:
     # - name: "gcp-sa-credentials"
@@ -82,12 +82,12 @@ spec:
     # spark.kubernetes.memoryOverheadFactor: "0.2"
     spark.ui.proxyBase: /${APP_NAME}-${PRIORITY_CLASS_NAME}${NAME_SUFFIX}
     spark.sql.extensions: io.delta.sql.DeltaSparkSessionExtension
-    spark.sql.catalog.spark_catalog: org.apache.spark.sql.delta.catalog.DeltaCatalog
+    # spark.sql.catalog.spark_catalog: org.apache.spark.sql.delta.catalog.DeltaCatalog
     spark.delta.logStore.gs.impl: io.delta.storage.GCSLogStore
     spark.hadoop.fs.s3a.impl: "org.apache.hadoop.fs.s3a.S3AFileSystem"
     spark.hadoop.fs.s3a.aws.credentials.provider: "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     spark.hadoop.fs.s3a.path.style.access: "true"
-  sparkVersion: 3.3.1
+  sparkVersion: 3.5.0
   timeToLiveSeconds: 172800
   type: "Python"
   dynamicAllocation:
